@@ -1,0 +1,1275 @@
+<title>Holland casino</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  const cut = 1;
+  const adjustCfc = 0.42;
+  const CONFIG = (() => {
+    const params = new URLSearchParams(window.location.search);
+
+    const DEFAULTS = {
+      lang: "nl",
+      brand: "hollandcasino",
+      offerBase: "https://arhh8.com/Rb26LZWs",
+      i18nUrl: "https://alphaclick.click/system/i18n.json?v=1",
+      sendTo: "AW-18148570708/LAWXCJHW7_scENTs9M1D",
+      b1: "Bonus €4.000",
+      b2: "100 GS"
+    };
+
+    const LANDING_CONFIG_PARAMS = new Set([
+      "lang",
+      "brand",
+      "b1",
+      "b2",
+      "send_to",
+      "tg",
+      "offer",
+    ]);
+
+    function getParam(name, fallback = "") {
+      const value = params.get(name);
+      if (value === null) return fallback;
+      const trimmed = value.trim();
+      return trimmed === "" ? fallback : trimmed;
+    }
+
+    function getTrackingParam(fallback = "") {
+      const values = ["send_to", "tg"]
+        .flatMap((name) => params.getAll(name))
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      return values.length ? values.join(",") : fallback;
+    }
+
+    function parseTrackingTargets(raw) {
+      return raw
+        .split(/[,\s;|]+/)
+        .map((value) => value.trim())
+        .filter((value) => value && value !== "#");
+    }
+
+    function splitBonusParam(raw, fallbackLeft = "", fallbackRight = "") {
+      if (!raw || !raw.trim()) {
+        return {
+          top: fallbackLeft,
+          bottom: fallbackRight,
+        };
+      }
+
+      const normalized = raw.trim().replace(/\+/g, " ");
+      const parts = normalized.split(/\s+/).filter(Boolean);
+
+      return {
+        top: parts[0] ?? fallbackLeft,
+        bottom: parts.slice(1).join(" ") || fallbackRight,
+      };
+    }
+
+    function getBonusFallbackParts(raw) {
+      const normalized = raw.trim().split(/\s+/).filter(Boolean);
+
+      return {
+        top: normalized[0] ?? "",
+        bottom: normalized.slice(1).join(" "),
+      };
+    }
+
+    function buildOfferUrl(baseUrl) {
+      let result = baseUrl + "?&";
+      result += "se_referrer=" + encodeURIComponent(document.referrer);
+      result += "&default_keyword=" + encodeURIComponent(document.title);
+
+      for (const [key, value] of params.entries()) {
+        if (LANDING_CONFIG_PARAMS.has(key)) {
+          continue;
+        }
+
+        result +=
+          "&" + encodeURIComponent(key) + "=" + encodeURIComponent(value);
+      }
+
+      return result;
+    }
+
+    const lang = getParam("lang", DEFAULTS.lang);
+    const brand = getParam("brand", DEFAULTS.brand);
+    const offerBase = getParam("offer", DEFAULTS.offerBase);
+    const sendTo = getTrackingParam(DEFAULTS.sendTo);
+    const trackingTargets = parseTrackingTargets(sendTo);
+
+    const bonus1Raw = getParam("b1", DEFAULTS.b1);
+    const bonus2Raw = getParam("b2", DEFAULTS.b2);
+
+    const defaultBonus1 = getBonusFallbackParts(DEFAULTS.b1);
+    const defaultBonus2 = getBonusFallbackParts(DEFAULTS.b2);
+
+    const bonus1 = splitBonusParam(
+      bonus1Raw,
+      defaultBonus1.top,
+      defaultBonus1.bottom,
+    );
+    const bonus2 = splitBonusParam(
+      bonus2Raw,
+      defaultBonus2.top,
+      defaultBonus2.bottom,
+    );
+
+    return {
+      params,
+      defaults: DEFAULTS,
+      landingConfigParams: LANDING_CONFIG_PARAMS,
+      lang,
+      brand,
+      offerBase,
+      offerURI: buildOfferUrl(offerBase),
+      sendTo,
+      trackingTargets,
+      i18nUrl: DEFAULTS.i18nUrl,
+      bonuses: {
+        first: bonus1,
+        second: bonus2,
+      },
+      assets: {
+        bg: `https://alphaclick.click/brands/${brand}/bg.avif`,
+        bgFallback: "https://alphaclick.click/brands/default/bg.avif",
+        logo: `https://alphaclick.click/brands/${brand}/logo.svg`,
+        holder: "https://alphaclick.click/wheel/steel-wheel-holder.avif",
+        trigger: "https://alphaclick.click/wheel/trigger.avif",
+        frame: "https://alphaclick.click/wheel/wheel-win-frame.avif",
+        modalBg: "https://alphaclick.click/wheel/bg-modal.avif",
+        mask: "https://alphaclick.click/wheel/wheel-mask.avif",
+      },
+    };
+  })();
+
+  async function loadI18n() {
+    const res = await fetch(CONFIG.i18nUrl, { cache: "force-cache" });
+    const allMessages = await res.json();
+    return allMessages[CONFIG.lang] || allMessages.en || allMessages.de;
+  }
+
+  function getTextFitTargets(element) {
+    const paragraphs = Array.from(element.querySelectorAll("p"));
+    if (paragraphs.length) return paragraphs;
+
+    let fitTarget = element.querySelector(":scope > .fit-text");
+    if (!fitTarget) {
+      const text = element.textContent.trim();
+      if (!text) return [];
+
+      fitTarget = document.createElement("span");
+      fitTarget.className = "fit-text";
+      fitTarget.textContent = text;
+      fitTarget.style.display = "inline-block";
+
+      element.textContent = "";
+      element.appendChild(fitTarget);
+    }
+
+    return [fitTarget];
+  }
+
+  function resetFontSize(element) {
+    const targets = getTextFitTargets(element);
+    targets.forEach((target) => {
+      target.style.fontSize = "";
+      target.style.transform = "";
+      target.style.transformOrigin = "";
+    });
+  }
+
+  function getMeasuredTextWidth(element) {
+    return element.scrollWidth || element.offsetWidth;
+  }
+
+  function adjustFontSizeToFit(element, c, options = {}) {
+    const targets = getTextFitTargets(element);
+    const baseWidth = element.offsetWidth;
+    const desiredWidth = baseWidth * c;
+    const maxRatio = options.maxRatio ?? (c < 0.5 ? 0.62 : c);
+    const maxWidth = baseWidth * maxRatio;
+    const minFontSize = options.minFontSize ?? 6;
+    const rawMaxFontSize =
+      options.maxFontSize ??
+      (options.maxFontSizeRatio ? baseWidth * options.maxFontSizeRatio : 100);
+    const maxFontSizeLimit = options.maxFontSizeLimit ?? rawMaxFontSize;
+    const maxFontSize = Math.max(
+      minFontSize,
+      Math.min(rawMaxFontSize, maxFontSizeLimit),
+    );
+    const step = options.step ?? 0.5;
+
+    if (!baseWidth || !desiredWidth || !maxWidth) return;
+
+    targets.forEach((target) => {
+      let fontSize = parseFloat(window.getComputedStyle(target).fontSize);
+      if (!fontSize) return;
+
+      target.style.whiteSpace = "nowrap";
+      if (fontSize > maxFontSize) {
+        fontSize = maxFontSize;
+        target.style.fontSize = `${fontSize}px`;
+      }
+
+      while (getMeasuredTextWidth(target) < desiredWidth && fontSize < maxFontSize) {
+        fontSize = Math.min(maxFontSize, fontSize + step);
+        target.style.fontSize = `${fontSize}px`;
+      }
+
+      while (getMeasuredTextWidth(target) > maxWidth && fontSize > minFontSize) {
+        fontSize = Math.max(minFontSize, fontSize - step);
+        target.style.fontSize = `${fontSize}px`;
+      }
+
+      const measuredWidth = getMeasuredTextWidth(target);
+      if (measuredWidth > maxWidth) {
+        target.style.transformOrigin = "center center";
+        target.style.transform = `scaleX(${maxWidth / measuredWidth})`;
+      }
+    });
+  }
+
+  function preloadImage(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(url);
+      img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+      img.src = url;
+    });
+  }
+
+  async function resolveBackgroundUrl() {
+    try {
+      await preloadImage(CONFIG.assets.bg);
+      return CONFIG.assets.bg;
+    } catch (error) {
+      return CONFIG.assets.bgFallback;
+    }
+  }
+
+  async function applyAssets() {
+    const section = document.querySelector("section.body");
+    const logo = document.querySelector(".logo img");
+    const wheel = document.querySelector(".wheel");
+    const start = document.querySelector(".start");
+    const frameImg = document.querySelector(".frame img");
+
+    if (section) {
+      const bgUrl = await resolveBackgroundUrl();
+      section.style.background = `url("${bgUrl}") no-repeat top left / cover`;
+    }
+
+    if (logo) {
+      logo.src = CONFIG.assets.logo;
+    }
+
+    if (wheel) {
+      wheel.style.background = `url("${CONFIG.assets.holder}") no-repeat top left / contain`;
+    }
+
+    if (start) {
+      start.style.background = `url("${CONFIG.assets.trigger}") no-repeat center / contain`;
+    }
+
+    if (frameImg) {
+      frameImg.src = CONFIG.assets.frame;
+    }
+
+    document.querySelectorAll(".popup-body").forEach((el) => {
+      el.style.background = `url("${CONFIG.assets.modalBg}") no-repeat center / cover`;
+    });
+
+    document.documentElement.style.setProperty(
+      "--wheel-mask-url",
+      `url("${CONFIG.assets.mask}")`,
+    );
+  }
+
+  function applyI18n(t) {
+    const wheelSegs = document.querySelectorAll(".wheel-seg");
+    const startBtnText = document.querySelector(".start p");
+    const offerTitle = document.querySelector(".offer h1");
+    const offerText = document.querySelector(".offer p");
+    const firstPopupTitle = document.querySelector("#first-popup .popup-title");
+    const secondPopupTitle = document.querySelector(
+      "#second-popup .popup-title",
+    );
+    const retryBtn = document.querySelector("#secsp");
+    const claimBtn = document.querySelector(
+      "#d25c38c9-c12e-670a-4afb-5b9f8d6045ee",
+    );
+
+    if (startBtnText) startBtnText.textContent = t.spin_button;
+    if (wheelSegs[0])
+      wheelSegs[0].querySelector(".wheel-small-text").textContent =
+        t.wheel_plus_spins;
+    if (wheelSegs[1])
+      wheelSegs[1].querySelector(".wheel-empty-text").textContent =
+        t.wheel_retry;
+    if (wheelSegs[3])
+      wheelSegs[3].querySelector(".wheel-empty-text").textContent =
+        t.wheel_empty;
+    if (wheelSegs[4])
+      wheelSegs[4].querySelector(".wheel-small-text").textContent =
+        t.wheel_plus_spins;
+    if (wheelSegs[5])
+      wheelSegs[5].querySelector(".wheel-empty-text").textContent =
+        t.wheel_retry;
+    if (wheelSegs[7])
+      wheelSegs[7].querySelector(".wheel-empty-text").textContent =
+        t.wheel_empty;
+
+    if (offerTitle) offerTitle.textContent = t.main_title;
+    if (offerText) {
+      offerText.innerHTML = `${t.attempts_label} <span id="counter">2</span>`;
+    }
+
+    if (firstPopupTitle) firstPopupTitle.textContent = t.popup_title;
+    if (secondPopupTitle) secondPopupTitle.textContent = t.popup_title;
+    if (retryBtn) retryBtn.textContent = t.popup_retry_button;
+    if (claimBtn) claimBtn.textContent = t.popup_claim_button;
+
+    document.title = t.meta_title || document.title;
+  }
+
+  function applyBonuses(t) {
+    const wheelSegs = document.querySelectorAll(".wheel-seg");
+    const b1 = CONFIG.bonuses.first;
+    const b2 = CONFIG.bonuses.second;
+    const bonus1Text = [b1.top, b1.bottom].filter(Boolean).join(" ");
+    const bonus2Text = [b2.top, b2.bottom].filter(Boolean).join(" ");
+
+    function setPopupText(selector, prefix, value) {
+      const popupText = document.querySelector(selector);
+      if (!popupText) return;
+
+      const prefixNode = popupText.querySelector(".popup-text-prefix");
+      const valueNode = popupText.querySelector(".popup-text-value");
+
+      if (prefixNode) {
+        prefixNode.textContent = prefix;
+        prefixNode.hidden = !prefix;
+      }
+
+      if (valueNode) {
+        valueNode.textContent = value;
+        valueNode.hidden = !value;
+      }
+    }
+
+    if (wheelSegs[2]) {
+      wheelSegs[2].querySelector(".wheel-big-text").textContent = b1.top;
+      wheelSegs[2].querySelector(".wheel-small-text").textContent = b1.bottom;
+    }
+
+    if (wheelSegs[6]) {
+      wheelSegs[6].querySelector(".wheel-big-text").textContent = b2.top;
+      wheelSegs[6].querySelector(".wheel-small-text").textContent = b2.bottom;
+    }
+
+    const cutedBonus = bonus1Text.split(" ").slice(cut).join(" ");
+    setPopupText(
+      "#first-popup .popup-text",
+      t.popup_win_prefix + " ",
+      cutedBonus,
+    );
+    setPopupText(
+      "#second-popup .popup-text",
+      [t.popup_win_prefix, cutedBonus].filter(Boolean).join(" "),
+      bonus2Text ? `+ ${bonus2Text}` : "",
+    );
+  }
+
+  async function fitTexts() {
+    await document.fonts.ready;
+
+    const startBtn = document.querySelector(".start");
+    const texts = document.querySelectorAll(".wheel-text-wrapper.adopt");
+    const popupButtons = document.querySelectorAll(".popup-btn.adopt");
+
+    if (startBtn) {
+      resetFontSize(startBtn);
+      adjustFontSizeToFit(startBtn, 0.7);
+    }
+
+    texts.forEach((el) => {
+      resetFontSize(el);
+      adjustFontSizeToFit(el, adjustCfc, {
+        maxRatio: adjustCfc,
+        minFontSize: 7,
+        maxFontSizeRatio: 0.28,
+        maxFontSizeLimit: 32,
+      });
+    });
+
+    popupButtons.forEach((el) => {
+      resetFontSize(el);
+      adjustFontSizeToFit(el, 0.2, { maxRatio: 0.62, minFontSize: 7 });
+    });
+  }
+
+  function initTracking() {
+    const accountIds = Array.from(
+      new Set(
+        CONFIG.trackingTargets
+          .map((sendTo) => sendTo.split("/")[0])
+          .filter(Boolean),
+      ),
+    );
+
+    if (!accountIds.length) {
+      return;
+    }
+
+    const src =
+      "https://www.googletagmanager.com/gtag/js?id=" +
+      encodeURIComponent(accountIds[0]);
+    const exists = Array.from(document.scripts).some(
+      (script) => script.src === src,
+    );
+    if (!exists) {
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = src;
+      (document.head || document.documentElement).appendChild(script);
+    }
+
+    window.dataLayer = window.dataLayer || [];
+    window.gtag =
+      window.gtag ||
+      function () {
+        dataLayer.push(arguments);
+      };
+
+    gtag("js", new Date());
+    accountIds.forEach((accountId) => gtag("config", accountId));
+  }
+
+  function sendConversions() {
+    if (typeof gtag !== "function") {
+      return;
+    }
+
+    CONFIG.trackingTargets.forEach((sendTo) => {
+      gtag("event", "conversion", {
+        send_to: sendTo,
+        transport_type: "beacon",
+        event_timeout: 500,
+      });
+    });
+  }
+
+  async function initPage() {
+    initTracking();
+    const [t] = await Promise.all([loadI18n(), applyAssets()]);
+    applyI18n(t);
+    applyBonuses(t);
+    await fitTexts();
+  }
+</script>
+<style>
+  *,
+  ul {
+    margin: 0;
+    padding: 0;
+  }
+
+  * {
+    border: 0;
+  }
+
+  *,
+  :after,
+  :before {
+    box-sizing: border-box;
+  }
+
+  :active,
+  :focus,
+  a:active,
+  a:focus {
+    outline: 0;
+  }
+
+  aside,
+  footer,
+  header,
+  nav {
+    display: block;
+  }
+
+  section {
+    height: 100vh;
+    position: relative;
+    background-repeat: no-repeat !important;
+    background-position: top left !important;
+    background-size: cover !important;
+    z-index: 10;
+  }
+
+  .embeded-body::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1;
+  }
+
+  body {
+    height: 100%;
+  }
+
+  .body {
+    width: 100vw;
+    height: 100%;
+    position: relative;
+    z-index: 100;
+  }
+
+  .body,
+  html {
+    font:
+      14px/1 Ubuntu,
+      sans-serif;
+    height: 100%;
+    width: 100%;
+    -ms-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+    display: flex;
+    flex-direction: column;
+    color: #000;
+  }
+
+  html {
+    width: 100vw;
+    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  @keyframes spinner {
+    0% {
+      transform: rotate(-3deg);
+    }
+
+    50% {
+      transform: rotate(3deg);
+    }
+
+    100% {
+      transform: rotate(-3deg);
+    }
+  }
+
+  @keyframes antispinner {
+    0% {
+      transform: rotate(3deg);
+    }
+
+    50% {
+      transform: rotate(-3deg);
+    }
+
+    100% {
+      transform: rotate(3deg);
+    }
+  }
+
+  .first-spin {
+    animation: 5s firstSpin ease;
+    animation-fill-mode: forwards;
+  }
+
+  .second-spin {
+    animation: 5s secondSpin ease;
+    animation-fill-mode: forwards;
+  }
+
+  @keyframes firstSpin {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(1350deg);
+    }
+  }
+
+  @keyframes secondSpin {
+    from {
+      transform: rotate(1350deg);
+    }
+
+    to {
+      transform: rotate(2970deg);
+    }
+  }
+
+  #banner .paragraph,
+  #banner p {
+    color: unset !important;
+    font-family: "Ubuntu", sans-serif;
+  }
+
+  .footer::after {
+    display: none;
+  }
+
+  .header::after {
+    display: none;
+  }
+
+  #weebly-footer-signup-container-v3 {
+    visibility: unset !important;
+    display: none !important;
+    height: unset !important;
+    position: unset !important;
+    bottom: 0px !important;
+    left: 0px;
+    right: 0px !important;
+    width: 100% !important;
+    z-index: -1 !important;
+    opacity: 0 !important;
+  }
+
+  #panel-one {
+    height: 0px !important;
+  }
+
+  #panel-two {
+    height: 100vh;
+
+    #banner {
+      height: 100%;
+    }
+  }
+
+  #wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
+  .container {
+    padding: 0 !important;
+  }
+
+  .embeded-body img {
+    background: transparent !important;
+  }
+
+  .embeded-body > header {
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .cookie-banner,
+  .cookie-modal,
+  .cookie-consent,
+  [data-cookie-banner],
+  [data-cookie-modal],
+  [data-cookie-consent] {
+    display: none !important;
+  }
+</style>
+<section class="body embeded-body" style="
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  ">
+  <header style="
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      z-index: 10;
+      width: 100%;
+      left: 0;
+      top: 0;
+    ">
+    <div class="logo">
+      <style>
+        .logo {
+          padding: 20px 0 0 0;
+          width: 33.75%;
+          max-width: 324px;
+          height: 229.5px;
+
+          img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
+        }
+
+        .wheel-text-wrapper {
+          width: 100%;
+          height: 100%;
+          padding-top: 5%;
+          display: flex;
+          align-items: center;
+          flex-direction: column;
+
+          p {
+            width: fit-content;
+            text-transform: uppercase;
+          }
+
+          p:not(last-child) {
+            margin-bottom: 6px;
+          }
+        }
+      </style><img src="https://alphaclick.click/system/loader.svg" alt="logo" />
+    </div>
+  </header>
+  <div class="main" style="
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: auto;
+    ">
+    <div class="wheel" style="
+        width: var(--wheel-size, 100%);
+        min-width: var(--wheel-size, 0);
+        flex: 0 0 var(--wheel-size, auto);
+        height: auto;
+        background: url(&quot;https://alphaclick.click/wheel/steel-wheel-holder.avif&quot;)
+          no-repeat top left / contain;
+        aspect-ratio: 1 / 1;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+      <div class="wheel-body animate" style="
+          position: relative;
+          background: black;
+          width: 75%;
+          height: 75%;
+          border-radius: 50%;
+          overflow: hidden;
+        ">
+        <div class="wheel-seg">
+          <div class="wheel-text-wrapper adopt">
+            <p class="wheel-big-text wheel-text" style="color: #fbd84d !important; margin: 0 0 6px 0 !important">
+              +2
+            </p>
+            <p class="wheel-small-text wheel-text" style="color: #fff !important; margin: 0 !important">
+              Spins
+            </p>
+          </div>
+        </div>
+        <div class="wheel-seg">
+          <div class="wheel-text-wrapper adopt">
+            <p class="wheel-empty-text wheel-text" style="color: #7ccc33 !important; margin: 0 0 6px 0 !important">
+              Nochmal
+            </p>
+          </div>
+        </div>
+        <div class="wheel-seg">
+          <div class="wheel-text-wrapper adopt">
+            <p class="wheel-big-text wheel-text" style="color: #fbd84d !important; margin: 0 0 6px 0 !important">
+              300
+            </p>
+            <p class="wheel-small-text wheel-text" style="color: #fff !important; margin: 0 !important">
+              FS
+            </p>
+          </div>
+        </div>
+        <div class="wheel-seg">
+          <div class="wheel-text-wrapper adopt">
+            <p class="wheel-empty-text wheel-text" style="color: #7ccc33 !important; margin: 0 !important">
+              Leer
+            </p>
+          </div>
+        </div>
+        <div class="wheel-seg">
+          <div class="wheel-text-wrapper adopt">
+            <p class="wheel-big-text wheel-text" style="color: #fbd84d !important; margin: 0 0 6px 0 !important">
+              +2
+            </p>
+            <p class="wheel-small-text wheel-text" style="color: #fff !important; margin: 0 !important">
+              Spins
+            </p>
+          </div>
+        </div>
+        <div class="wheel-seg">
+          <div class="wheel-text-wrapper adopt">
+            <p class="wheel-empty-text wheel-text" style="color: #7ccc33 !important; margin: 0 !important">
+              Nochmal
+            </p>
+          </div>
+        </div>
+        <div class="wheel-seg">
+          <div class="wheel-text-wrapper adopt">
+            <p class="wheel-big-text wheel-text" style="color: #fbd84d !important; margin: 0 0 6px 0 !important">
+              BIS ZU
+            </p>
+            <p class="wheel-small-text wheel-text" style="color: #fff !important; margin: 0 !important">
+              3.000€
+            </p>
+          </div>
+        </div>
+        <div class="wheel-seg">
+          <div class="wheel-text-wrapper adopt">
+            <p class="wheel-empty-text wheel-text" style="color: #7ccc33 !important; margin: 0 !important">
+              Leer
+            </p>
+          </div>
+        </div>
+        <style>
+          .wheel-text {
+            display: block;
+          }
+
+          .wheel-seg {
+            padding-top: 10px;
+            height: 51%;
+            width: 41.3%;
+            position: absolute;
+            -webkit-clip-path: polygon(100% 0, 50% 100%, 0 0);
+            clip-path: polygon(100% 0, 50% 100%, 0 0);
+            translate: -50% 0;
+            transform-origin: bottom;
+            text-align: center;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            left: 50%;
+          }
+
+          .wheel-seg:nth-child(odd) {
+            background: linear-gradient(0deg,
+                rgb(0, 169, 0) 23%,
+                rgb(0, 110, 0) 74%);
+          }
+
+          .wheel-seg:nth-child(even) {
+            background: linear-gradient(0deg,
+                rgb(0, 169, 0) 23%,
+                rgb(1, 87, 1) 74%);
+          }
+
+          .wheel-seg:nth-child(1) {
+            left: 50%;
+          }
+
+          .wheel-seg:nth-child(2) {
+            rotate: 45deg;
+          }
+
+          .wheel-seg:nth-child(3) {
+            rotate: 90deg;
+          }
+
+          .wheel-seg:nth-child(4) {
+            rotate: 135deg;
+          }
+
+          .wheel-seg:nth-child(5) {
+            rotate: 180deg;
+          }
+
+          .wheel-seg:nth-child(6) {
+            rotate: 225deg;
+          }
+
+          .wheel-seg:nth-child(7) {
+            rotate: 270deg;
+          }
+
+          .wheel-seg:nth-child(8) {
+            rotate: 315deg;
+          }
+        </style>
+      </div>
+      <button class="start" style="
+          position: absolute;
+          margin: auto;
+          top: 0;
+          bottom: 0;
+          right: 0;
+          left: 0;
+          background: url(&quot;https://alphaclick.click/wheel/trigger.avif&quot;)
+            no-repeat center/contain;
+          width: 25%;
+          height: 25%;
+          z-index: 10;
+          color: #612901;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-transform: uppercase;
+        ">
+        <p style="width: fit-content; padding: 0; margin:0; color: #612901;">Drehen</p>
+      </button>
+      <div class="frame">
+        <img src="https://alphaclick.click/wheel/wheel-win-frame.avif" alt="" />
+      </div>
+      <style>
+        .frame {
+          position: absolute;
+          z-index: 5;
+          top: -1%;
+          left: 50%;
+          translate: -50% 0;
+          height: 60%;
+
+          img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
+        }
+
+        .popup {
+          position: fixed;
+          width: 100%;
+          height: 100%;
+          left: 0;
+          top: 0;
+          background: rgba(0, 0, 0, 0.4);
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: 0.2s ease;
+          opacity: 0;
+          pointer-events: none;
+
+          .popup-body {
+            background: url("https://alphaclick.click/wheel/bg-modal.avif") no-repeat center / cover;
+            border: 2px solid #fbd84d;
+            border-radius: 20px;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+          }
+
+          .popup-btn {
+            width: 100%;
+            color: #612901;
+            border-bottom: 4px solid #7e5205;
+            background: rgb(224, 138, 13);
+            background: linear-gradient(180deg,
+                rgb(224, 138, 13) 0%,
+                rgb(255, 196, 70) 40%,
+                rgb(255, 196, 70) 60%,
+                rgb(224, 138, 13) 100%);
+            display: block;
+            border-radius: 16px;
+            font-size: 25px;
+            padding: 24px 33px;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-left: auto;
+            margin-right: auto;
+            overflow: hidden;
+            position: relative;
+            text-decoration: none;
+            text-align: center;
+          }
+
+          .popup-text {
+            color: #fff !important;
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 25px;
+            font-weight: 500;
+          }
+
+          .popup-text-value {
+            white-space: pre-line;
+          }
+        }
+
+        #second-popup {
+          .popup-text-prefix {
+            display: block;
+            margin-bottom: 10px;
+          }
+
+          .popup-text-value {
+            display: block;
+          }
+        }
+
+        .active-popup {
+          opacity: 1;
+          pointer-events: all;
+        }
+      </style>
+    </div>
+  </div>
+  <div class="offer" style="
+      padding: 15px;
+      border-radius: 15px;
+      background-color: rgba(0, 0, 0, 0.4);
+      position: relative;
+      z-index: 10;
+    ">
+    <h1 style="
+        color: #fbd84d !important;
+        text-align: center;
+        margin: 0 0 10px 0;
+        font-size: 30px;
+      ">
+      Drehe und gewinne!
+    </h1>
+    <p style="color: #fff !important; text-align: center; font-size: 22px">
+      Ihre Versuche: <span id="counter">2</span>
+    </p>
+  </div>
+  <div id="first-popup" class="popup">
+    <div class="popup-body">
+      <h2 class="popup-title" style="
+          color: #fbd84d !important;
+          text-align: center;
+          margin-bottom: 9px;
+          font-size: 30px;
+          margin-bottom: 20px;
+        ">
+        Dein Gewinn:
+      </h2>
+      <p class="popup-text">
+        <span class="popup-text-prefix"></span>
+        <span class="popup-text-value">300 FS</span>
+      </p>
+      <a href="#" id="secsp" class="popup-btn adopt">Nochmal</a>
+    </div>
+  </div>
+  <div id="second-popup" class="popup">
+    <div class="popup-body">
+      <h2 class="popup-title" style="
+          color: #fbd84d !important;
+          text-align: center;
+          margin-bottom: 9px;
+          font-size: 30px;
+          margin-bottom: 20px;
+        ">
+        Glückwunsch!
+      </h2>
+      <p class="popup-text">
+        <span class="popup-text-prefix">Dein Gewinn: 300 FS</span>
+        <span class="popup-text-value">+ BIS ZU 3.000€</span>
+      </p>
+      <a href="#" id="d25c38c9-c12e-670a-4afb-5b9f8d6045ee" class="popup-btn adopt">Bonus abholen</a>
+      <script>
+        document
+          .querySelector("#d25c38c9-c12e-670a-4afb-5b9f8d6045ee")
+          .addEventListener("click", function (e) {
+            e.preventDefault();
+            try {
+              sendConversions();
+            } catch (e) { }
+            window.location.href = CONFIG.offerURI;
+          });
+      </script>
+    </div>
+  </div>
+  <style>
+    .animate {
+      animation: 2s spinner ease-in-out infinite;
+    }
+
+    .wheel::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      translate: -50% -50%;
+      display: block;
+      width: 75%;
+      height: 75%;
+      background: url("https://alphaclick.click/wheel/wheel-mask.avif") no-repeat center / contain;
+    }
+
+    @media (max-width: 767px) {
+      .body > header {
+        position: absolute !important;
+        left: 0 !important;
+        width: 100% !important;
+      }
+
+      .logo {
+        transform: translateY(-30px) !important;
+      }
+
+      #first-popup.popup,
+      #second-popup.popup {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        margin: 0 !important;
+        transform: none !important;
+      }
+
+      #first-popup .popup-body,
+      #second-popup .popup-body {
+        position: fixed !important;
+        left: 50vw !important;
+        top: 50vh !important;
+        top: 50dvh !important;
+        width: min(90vw, 600px) !important;
+        max-height: calc(100dvh - 32px);
+        margin: 0 !important;
+        overflow-y: auto;
+        transform: translate(-50%, -50%) !important;
+      }
+
+      .main {
+        top: -2vh !important;
+        transform: none !important;
+      }
+
+      .wheel {
+        --wheel-size: 100%;
+        top: 30px !important;
+        flex-shrink: 0 !important;
+        max-width: none !important;
+      }
+    }
+
+    @media (min-width: 500px) {
+      .wheel {
+        max-width: 700px;
+      }
+    }
+
+    .powered-by-badge {
+      display: none !important;
+    }
+  </style>
+  <script>
+    const startBtn = document.querySelector(".start");
+    const wheelBody = document.querySelector(".wheel-body");
+    const firstPopup = document.querySelector("#first-popup");
+    const secondPopup = document.querySelector("#second-popup");
+    const secsp = document.querySelector("#secsp");
+    let counter = document.querySelector("#counter");
+    const storageKey = `wheel-state:${CONFIG.lang}:${CONFIG.brand}`;
+
+    function readSavedState() {
+      try {
+        return JSON.parse(localStorage.getItem(storageKey) || "null");
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function saveFinishedState() {
+      const prefixNode = secondPopup.querySelector(".popup-text-prefix");
+      const valueNode = secondPopup.querySelector(".popup-text-value");
+
+      try {
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            finished: true,
+            bonus1: CONFIG.bonuses.first,
+            bonus2: CONFIG.bonuses.second,
+            popupPrefix: prefixNode ? prefixNode.textContent : "",
+            popupValue: valueNode ? valueNode.textContent : "",
+          }),
+        );
+      } catch (e) { }
+    }
+
+    function applySavedPopupText(state) {
+      const prefixNode = secondPopup.querySelector(".popup-text-prefix");
+      const valueNode = secondPopup.querySelector(".popup-text-value");
+
+      if (prefixNode && typeof state.popupPrefix === "string") {
+        prefixNode.textContent = state.popupPrefix;
+        prefixNode.hidden = !state.popupPrefix;
+      }
+
+      if (valueNode && typeof state.popupValue === "string") {
+        valueNode.textContent = state.popupValue;
+        valueNode.hidden = !state.popupValue;
+      }
+    }
+
+    function showSavedWinState() {
+      const state = readSavedState();
+      if (!state?.finished) return;
+
+      applySavedPopupText(state);
+      wheelBody.classList.remove("animate", "first-spin");
+      wheelBody.classList.add("second-spin");
+      firstPopup.classList.remove("active-popup");
+      secondPopup.classList.add("active-popup");
+      if (counter) counter.innerHTML = "0";
+      fitTexts().catch(() => { });
+    }
+
+    initPage().then(() => {
+      counter = document.querySelector("#counter");
+      showSavedWinState();
+    });
+    startBtn.addEventListener("click", function () {
+      if (readSavedState()?.finished) {
+        showSavedWinState();
+        return;
+      }
+
+      wheelBody.classList.remove("animate");
+      wheelBody.classList.add("first-spin");
+      if (counter) counter.innerHTML = "1";
+      setTimeout(function () {
+        firstPopup.classList.add("active-popup");
+      }, 6000);
+    });
+    secsp.addEventListener("click", function (e) {
+      e.preventDefault();
+      firstPopup.classList.remove("active-popup");
+      wheelBody.classList.add("second-spin");
+      if (counter) counter.innerHTML = "0";
+      setTimeout(function () {
+        saveFinishedState();
+        secondPopup.classList.add("active-popup");
+      }, 6000);
+    });
+  </script>
+
+</section>
+
+
+
+
+
+
+
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>A different state of mind | Sereva</title><meta name="description" content="Discover Sereva, an international hospitality concept bringing together considered stays, dining, wellness and an optional casino evening."><meta name="theme-color" content="#b64834"><link rel="stylesheet" href="assets/vendor/bootstrap/bootstrap.min.css"><link rel="stylesheet" href="assets/css/styles.css"><script src="assets/js/main.js" defer></script></head><body class="page-index"><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="wordmark" href="index.html" aria-label="Sereva home" aria-current="page">sereva<span class="wordmark-dot">.</span></a><nav class="desktop-nav" aria-label="Main navigation"><a href="rooms.html">Stay</a><a href="casino.html">Casino</a><a href="dining.html">Dine</a><a href="wellness.html">Unwind</a><a href="experiences.html">Gather</a><a href="destination.html">Explore</a></nav><a class="button button-small header-book" href="contact.html#reservation">Plan your stay <span aria-hidden="true">↗</span></a><details class="site-menu"><summary>Menu <span aria-hidden="true">+</span></summary><nav aria-label="Mobile navigation"><a href="index.html" aria-current="page">Home</a><a href="rooms.html">Stay</a><a href="casino.html">Casino</a><a href="dining.html">Dine</a><a href="wellness.html">Unwind</a><a href="experiences.html">Gather</a><a href="destination.html">Explore</a><a href="contact.html">Contact & reservations</a><a href="index.html#responsible-gaming">Responsible gaming</a></nav></details></header><main id="main"><section class="hero" aria-labelledby="hero-title"><img class="hero-image" src="assets/images/terrace.webp" srcset="assets/images/terrace-640.webp 640w, assets/images/terrace-960.webp 960w, assets/images/terrace.webp 1536w" sizes="100vw" width="1536" height="1024" alt="Sunlit modernist resort terrace with a blue pool, coral parasols and an open sea horizon" loading="eager" decoding="auto" fetchpriority="high"><div class="hero-shade"></div><div class="hero-copy"><p class="eyebrow">Sereva · Hotel &amp; Casino</p><h1 id="hero-title">Somewhere between<br><em>daydream</em> &amp; after dark.</h1><div class="hero-bottom"><p>A slower morning. A table worth lingering at.<br>An evening with its own possibilities.</p><a class="button button-light" href="rooms.html">Find your kind of stay<span aria-hidden="true">↗</span></a></div></div><span class="hero-side" aria-hidden="true">The art of being away</span></section>
+<section class="planning-band" aria-labelledby="planner-title"><div class="container-wide"><div class="planner-caption"><h2 id="planner-title">Make room for a little escape.</h2><p>Tell us what you have in mind. Every stay begins with an enquiry.</p></div><form class="stay-planner" data-planner action="contact.html#reservation" method="get" id="stay-planner"><div><label for="plan-arrival">Arrival</label><input class="form-control" type="date" id="plan-arrival" name="arrival" aria-describedby="stay-planner-date-error"></div><div><label for="plan-departure">Departure</label><input class="form-control" type="date" id="plan-departure" name="departure" aria-describedby="stay-planner-date-error"></div><div><label for="plan-guests">Adults</label><select class="form-select" name="guests" id="plan-guests"><option value="1">1 guest</option><option value="2" selected>2 guests</option><option value="3">3 guests</option><option value="4">4 guests</option></select></div><button class="button button-dark" type="submit">Plan a stay <span aria-hidden="true">↗</span></button><p class="date-error" id="stay-planner-date-error" role="alert"></p></form></div></section>
+<section class="intro-story section-pad"><div class="container-wide"><p class="eyebrow">The Sereva point of view</p><div class="row g-4"><div class="col-lg-8"><h2>A change of scene.<br><em>A different state of mind.</em></h2></div><div class="col-lg-4 story-copy"><p>There is a particular pleasure in a day without a timetable. A long breakfast. A shaded corner. Dinner that becomes a conversation you do not want to end.</p><p>Our Hotel &amp; Casino concept brings those moments together: thoughtful rooms, a generous table and an evening world you can dip into, or simply pass by.</p><a class="text-link" href="destination.html">Discover the Sereva outlook<span aria-hidden="true">↗</span></a></div></div></div></section>
+<section class="stay-collection section-pad"><div class="container-wide"><div class="section-heading"><p class="eyebrow">01 / Make yourself at home</p><h2>The room is only<br><em>the beginning.</em></h2><p>Choose the feeling you would like to wake up to. Our room collection moves from a quietly considered retreat to space for a longer, more personal escape.</p></div><div class="row g-4"><div class="col-lg-8"><a class="photo-link" href="rooms.html"><img class="" src="assets/images/suite.webp" srcset="assets/images/suite-640.webp 640w, assets/images/suite.webp 1440w" sizes="(min-width: 992px) 60vw, 100vw" width="1440" height="960" alt="Linen bed and coral lounge chair in a walnut and marine blue suite" loading="lazy" decoding="async"><div class="photo-caption"><h3>Rooms with room to breathe</h3><span>Explore the collection ↗</span></div></a></div><div class="col-lg-4 room-index"><a href="rooms.html#terrace-room"><span>01</span><div><h3>Terrace Room</h3><p>A light-filled hideaway for two unhurried days.</p></div></a><a href="rooms.html#studio-suite"><span>02</span><div><h3>Studio Suite</h3><p>Separate corners for reading, resting and doing very little.</p></div></a><a href="rooms.html#residence"><span>03</span><div><h3>Sereva Residence</h3><p>A more private rhythm, with space to settle in.</p></div></a></div></div></div></section>
+<section class="evening-section section-pad"><div class="container-wide"><div class="evening-header"><p class="eyebrow">02 / When the mood changes</p><h2>A little theatre.<br><em>A night of your own.</em></h2><p>The casino is one part of the Sereva evening: a considered setting for adults who choose to play, with room to pause, watch and leave whenever they wish.</p></div><div class="casino-photo"><img class="" src="assets/images/casino.webp" srcset="assets/images/casino-640.webp 640w, assets/images/casino.webp 1440w" sizes="(min-width: 992px) 60vw, 100vw" width="1440" height="960" alt="Roulette wheel and green felt tables in a softly lit casino with walnut panelling" loading="lazy" decoding="async"><span class="image-label">Hotel &amp; Casino · The evening collection</span></div><div class="row g-4 evening-details"><div class="col-md-4"><h3>The gaming room</h3><p>Green felt, soft lamps and comfortable space around the tables. Explore roulette, blackjack and baccarat in an atmosphere shaped as much by service as by the game.</p></div><div class="col-md-4"><h3>The private salon</h3><p>A quieter setting for conversation and an individually paced visit. Enquire about the salon concept, access arrangements and the information to review before playing.</p></div><div class="col-md-4"><h3>Your own pace</h3><p>Set a time and spending limit before entering. The lounge offers a natural change of scene, and an evening at Sereva never needs to include gambling.</p></div></div><div class="inline-actions"><a class="text-link" href="casino.html">Explore the casino<span aria-hidden="true">↗</span></a><a class="text-link" href="#responsible-gaming">Keep play in perspective<span aria-hidden="true">↗</span></a></div></div></section>
+<section class="dining-preview section-pad"><div class="container-wide"><div class="row g-5 align-items-center"><div class="col-md-6"><img class="" src="assets/images/dining.webp" srcset="assets/images/dining-640.webp 640w, assets/images/dining.webp 1440w" sizes="(min-width: 992px) 60vw, 100vw" width="1440" height="960" alt="Restaurant terrace with white table linens and coral seating" loading="lazy" decoding="async"></div><div class="col-md-6"><div class="section-heading"><p class="eyebrow">03 / Come hungry, stay awhile</p><h2>Good taste.<br><em>No hurry.</em></h2><p>A seasonal dining room, a relaxed terrace table and a late-night lounge. Different settings, the same belief: the most memorable meals leave room for the people around the table.</p></div><p>Follow a crisp first course with something slowly cooked. Trade a formal dinner for small plates. Let the conversation set the pace.</p><a class="text-link" href="dining.html">Find your table<span aria-hidden="true">↗</span></a></div></div></div></section>
+<section class="wellness-preview section-pad"><div class="container-wide"><div class="row g-5 align-items-center"><div class="col-lg-5"><div class="section-heading"><p class="eyebrow">04 / A gentler kind of occasion</p><h2>Turn the volume<br><em>down.</em></h2><p>Warm stone underfoot. Blue water catching the light. A quiet place to put your phone away and notice how little a good afternoon needs.</p></div><p>Explore our bathing, bodywork and rest concepts. Choose the parts that suit you, with time between appointments and space for doing nothing at all.</p><a class="text-link" href="wellness.html">Take a slower path<span aria-hidden="true">↗</span></a></div><div class="col-lg-7"><img class="" src="assets/images/spa.webp" srcset="assets/images/spa-640.webp 640w, assets/images/spa.webp 1440w" sizes="(min-width: 992px) 60vw, 100vw" width="1440" height="960" alt="Blue mosaic bathing pool beneath curved white plaster vaults" loading="lazy" decoding="async"></div></div></div></section>
+<section class="salon-preview section-pad"><div class="container-wide"><div class="section-row"><div class="section-heading"><p class="eyebrow">05 / The salon</p><h2>One more song.<br><em>One more conversation.</em></h2></div><p>A piano in the corner, a low table lamp, a seat that invites you to stay. The salon connects dinner and the gaming room while keeping its own easy, sociable character.</p></div><img class="" src="assets/images/salon.webp" srcset="assets/images/salon-640.webp 640w, assets/images/salon.webp 1440w" sizes="(min-width: 992px) 60vw, 100vw" width="1440" height="960" alt="Walnut piano and marine blue chairs in an intimate evening lounge" loading="lazy" decoding="async"><div class="caption-row"><p>For listeners, conversationalists and anyone who prefers a quieter night.</p><a class="text-link" href="experiences.html#salon">Meet at the salon<span aria-hidden="true">↗</span></a></div></div></section>
+<section class="gatherings-preview section-pad"><div class="container-wide"><p class="eyebrow">06 / Bring your people</p><div class="row g-5"><div class="col-lg-6"><h2>A reason to gather.<br><em>A setting to remember.</em></h2></div><div class="col-lg-6"><p>An intimate celebration asks for a different kind of attention from a creative retreat. Start with the people, the mood and the meal; then shape the room around them.</p><div class="mini-list"><p><span>Private dinners</span> A thoughtfully paced menu and a table for conversation.</p><p><span>Small celebrations</span> A personal occasion, without the unnecessary ceremony.</p><p><span>Creative gatherings</span> Space to think together, followed by a change of scene.</p></div><a class="text-link" href="experiences.html#gatherings">Imagine your occasion<span aria-hidden="true">↗</span></a></div></div></div></section>
+<section class="morning-band section-pad"><div class="container-wide"><p class="eyebrow">A Sereva ritual</p><h2>Leave a little<br><em>morning unplanned.</em></h2><p>Open the curtains before opening your messages. Take coffee somewhere with a view. Read another chapter. The best part of a stay may be the hour you never thought to book.</p><a class="text-link" href="dining.html#terrace">The terrace table<span aria-hidden="true">↗</span></a></div></section>
+<section class="destination-preview section-pad"><div class="container-wide"><div class="row g-5"><div class="col-md-5"><p class="eyebrow">07 / An international outlook</p><h2>Bring your curiosity.<br><em>We will start there.</em></h2></div><div class="col-md-7"><p>Sereva is conceived for travellers from everywhere. No single destination has been announced; tell us where you would like this kind of escape to take you.</p><p>From a quiet waterside weekend to a longer cultural itinerary, your interests can shape the first conversation. Practical location and arrival details must be confirmed before any travel is arranged.</p><a class="text-link" href="destination.html">Explore the possibilities<span aria-hidden="true">↗</span></a></div></div></div></section>
+<section class="gallery-section section-pad"><div class="container-wide"><div class="section-row"><div class="section-heading"><p class="eyebrow">A few details, a whole feeling</p><h2>The Sereva notebook.</h2></div><p>Explore the textures and imagined spaces behind the concept.</p></div><div class="row g-3"><div class="col-md-4"><a class="gallery-item" data-gallery data-caption="01 / Follow the light" href="assets/images/terrace.webp"><img class="" src="assets/images/terrace.webp" srcset="assets/images/terrace-640.webp 640w, assets/images/terrace-960.webp 960w, assets/images/terrace.webp 1536w" sizes="(min-width: 992px) 60vw, 100vw" width="1536" height="1024" alt="Sunlit pool terrace with coral parasols" loading="lazy" decoding="async"><span>01 / Follow the light<b aria-hidden="true">＋</b></span></a></div><div class="col-md-4"><a class="gallery-item" data-gallery data-caption="02 / Take your time" href="assets/images/dining.webp"><img class="" src="assets/images/dining.webp" srcset="assets/images/dining-640.webp 640w, assets/images/dining.webp 1440w" sizes="(min-width: 992px) 60vw, 100vw" width="1440" height="960" alt="Thoughtfully set restaurant table" loading="lazy" decoding="async"><span>02 / Take your time<b aria-hidden="true">＋</b></span></a></div><div class="col-md-4"><a class="gallery-item" data-gallery data-caption="03 / Find the stillness" href="assets/images/spa.webp"><img class="" src="assets/images/spa.webp" srcset="assets/images/spa-640.webp 640w, assets/images/spa.webp 1440w" sizes="(min-width: 992px) 60vw, 100vw" width="1440" height="960" alt="Quiet blue mosaic bathing pool" loading="lazy" decoding="async"><span>03 / Find the stillness<b aria-hidden="true">＋</b></span></a></div></div></div><dialog id="gallery-dialog" aria-labelledby="gallery-caption"><button class="dialog-close" data-close-dialog type="button" aria-label="Close image">×</button><img id="gallery-image" src="assets/images/terrace.webp" width="1536" height="1024" alt="" loading="lazy" decoding="async"><p id="gallery-caption"></p></dialog></section>
+<section class="responsible-band section-pad" id="responsible-gaming"><div class="container-wide"><div class="row g-5"><div class="col-lg-4"><p class="eyebrow">A considered approach</p><h2>Play is a choice.<br><em>Wellbeing comes first.</em></h2></div><div class="col-lg-8"><p>Gambling should be a voluntary form of adult entertainment, never a way to earn money or recover a loss. It is entirely possible to enjoy Sereva without taking part.</p><div class="row g-4"><div class="col-md-6"><h3>Decide your limits</h3><p>Set a time limit and an amount you can afford to lose before playing. Keep money for everyday needs separate. Stop at your limit and avoid chasing losses.</p><h3>Give yourself a break</h3><p>Step away regularly. If gambling stops feeling comfortable or becomes difficult to control, stop and speak to someone you trust.</p></div><div class="col-md-6"><h3>Ask about exclusion</h3><p>Before visiting any venue, ask about its available self-exclusion arrangements and support process. Local entry and eligibility requirements must be checked with the venue.</p><h3>Independent help</h3><p>Gambling Therapy offers free global online support for people affected by gambling, including family and friends.</p><a class="text-link" href="https://gamblingtherapy.org/talk-to-us/">Visit Gambling Therapy<span aria-hidden="true">↗</span></a></div></div></div></div></div></section><section class="cta-band"><div class="container-wide"><div><p class="eyebrow">Your next chapter</p><h2>A stay starts with a conversation.</h2><p>Share the dates, details and little things that would make an escape feel like yours. Our forms send an enquiry, never a confirmed booking.</p></div><a class="button button-light" href="contact.html">Write to Sereva<span aria-hidden="true">↗</span></a></div></section></main><footer class="site-footer"><div class="container-wide"><div class="footer-top"><div><a class="footer-wordmark" href="index.html" aria-current="page">sereva.</a><p>For the days you follow the light.<br>And the evenings you make your own.</p></div><div class="footer-contact"><span class="eyebrow">A conversation starts here</span><a class="email-link" href="mailto:hotelandcasino%40welcome.com">hotelandcasino@welcome.com</a><a class="text-link" href="contact.html">Contact the concierge<span aria-hidden="true">↗</span></a></div></div><div class="footer-bottom"><p>© 2026 Sereva</p><nav aria-label="Footer navigation"><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="index.html#responsible-gaming">Responsible gaming</a></nav></div><p class="concept-note">Sereva is an independent hospitality concept. Imagery represents envisioned spaces. A physical location, opening date and bookable inventory have not been announced. Enquiries are expressions of interest.</p></div></footer></body></html>
